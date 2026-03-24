@@ -1,0 +1,10 @@
+{
+  "name": "gg-generate-descriptions",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "src/main.js",
+  "dependencies": {
+    "node-appwrite": "^14.0.0",
+    "exceljs": "^4.4.0"
+  }
+}

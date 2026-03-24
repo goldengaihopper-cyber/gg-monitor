@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GG Monitor — Golden Gai Scraper Dashboard</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Shippori+Mincho:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0d0d0d;--surface:#141414;--border:#252525;--accent:#e8c14a;--accent2:#4ae8b0;--muted:#555;--text:#d4d0c8;--text-dim:#888;--radius:4px;--font-mono:'IBM Plex Mono',monospace;--font-jp:'Shippori Mincho',serif}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:var(--font-mono);font-size:13px;line-height:1.6;min-height:100vh}
+header{border-bottom:1px solid var(--border);padding:18px 24px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;background:var(--bg);z-index:100}
+.logo{display:flex;align-items:baseline;gap:10px}
+.logo-mark{font-size:11px;background:var(--accent);color:#000;padding:2px 7px;font-weight:500;letter-spacing:.08em}
+.logo-title{font-size:13px;color:var(--text-dim);letter-spacing:.04em}
+.header-stats{display:flex;gap:20px;align-items:center;font-size:11px;color:var(--muted)}
+.stat-pill{display:flex;gap:6px;align-items:center}
+.stat-pill .val{color:var(--accent);font-weight:500}
+.pulse{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent2);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.controls{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.search-box{background:var(--surface);border:1px solid var(--border);color:var(--text);font-family:var(--font-mono);font-size:12px;padding:6px 12px;border-radius:var(--radius);width:240px;outline:none;transition:border-color .15s}
+.search-box:focus{border-color:var(--accent)}
+.search-box::placeholder{color:var(--muted)}
+.filter-btn{background:none;border:1px solid var(--border);color:var(--text-dim);font-family:var(--font-mono);font-size:11px;padding:5px 12px;border-radius:var(--radius);cursor:pointer;transition:all .15s;letter-spacing:.04em}
+.filter-btn:hover,.filter-btn.active{border-color:var(--accent);color:var(--accent);background:rgba(232,193,74,.07)}
+.refresh-btn{margin-left:auto;background:var(--accent);color:#000;border:none;font-family:var(--font-mono);font-size:11px;font-weight:500;padding:6px 14px;border-radius:var(--radius);cursor:pointer;transition:opacity .15s;letter-spacing:.04em}
+.refresh-btn:hover{opacity:.85}
+.refresh-btn:disabled{opacity:.4;cursor:default}
+.main{display:grid;grid-template-columns:280px 1fr;height:calc(100vh - 103px)}
+.sidebar{border-right:1px solid var(--border);overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.bar-item{padding:12px 16px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .1s;display:flex;flex-direction:column;gap:3px}
+.bar-item:hover{background:var(--surface)}
+.bar-item.active{background:rgba(232,193,74,.06);border-left:2px solid var(--accent)}
+.bar-name-jp{font-family:var(--font-jp);font-size:14px;color:var(--text)}
+.bar-name-en{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+.bar-badges{display:flex;gap:5px;margin-top:2px}
+.badge{font-size:9px;padding:1px 5px;border-radius:2px;letter-spacing:.05em}
+.badge-content{background:rgba(74,232,176,.12);color:var(--accent2)}
+.badge-desc{background:rgba(232,193,74,.12);color:var(--accent)}
+.badge-empty{background:rgba(100,100,100,.12);color:var(--muted)}
+.detail{overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent;padding:28px 32px}
+.detail-empty{display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-size:12px;letter-spacing:.08em}
+.detail-header{margin-bottom:28px;padding-bottom:20px;border-bottom:1px solid var(--border)}
+.detail-name-jp{font-family:var(--font-jp);font-size:26px;color:var(--text);margin-bottom:4px}
+.detail-name-en{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px}
+.detail-uuid{font-size:10px;color:var(--border);letter-spacing:.04em}
+.section{margin-bottom:28px}
+.section-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);margin-bottom:10px;display:flex;align-items:center;gap:10px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--border)}
+.content-block{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;font-size:12px;color:var(--text-dim);line-height:1.8;white-space:pre-wrap;word-break:break-word;max-height:260px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--border) transparent}
+.content-block.empty{color:var(--muted);font-style:italic}
+.desc-jp{font-family:var(--font-jp);font-size:14px;line-height:2;color:var(--text)}
+.desc-en{font-size:13px;line-height:1.9;color:var(--text)}
+.char-count{font-size:10px;color:var(--muted);margin-top:6px;text-align:right}
+.copy-btn{background:none;border:1px solid var(--border);color:var(--muted);font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:var(--radius);cursor:pointer;float:right;margin-left:8px;transition:all .15s}
+.copy-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+.loading-screen{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;z-index:999;font-size:12px;color:var(--muted);letter-spacing:.08em}
+.loader{width:32px;height:32px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.error-banner{background:rgba(200,50,50,.1);border:1px solid rgba(200,50,50,.3);color:#e88;padding:12px 16px;border-radius:var(--radius);font-size:12px;margin:20px}
+.date-tag{color:var(--accent2);font-weight:500}
+</style>
+</head>
+<body>
+<div id="loading" class="loading-screen">
+  <div class="loader"></div>
+  <span id="loading-msg">Loading bar data...</span>
+</div>
+<header>
+  <div class="logo">
+    <span class="logo-mark">GG</span>
+    <span class="logo-title">Scraper Monitor</span>
+  </div>
+  <div class="header-stats">
+    <span class="pulse"></span>
+    <span class="stat-pill">Bars: <span class="val" id="stat-total">—</span></span>
+    <span class="stat-pill">With content: <span class="val" id="stat-content">—</span></span>
+    <span class="stat-pill">Described: <span class="val" id="stat-desc">—</span></span>
+    <span class="stat-pill">Last load: <span class="val" id="stat-time">—</span></span>
+  </div>
+</header>
+<div class="controls">
+  <input class="search-box" type="text" id="search" placeholder="Search bars... (JP or EN)">
+  <button class="filter-btn active" data-filter="all">All</button>
+  <button class="filter-btn" data-filter="has-desc">Has description</button>
+  <button class="filter-btn" data-filter="no-desc">Needs description</button>
+  <button class="filter-btn" data-filter="no-content">No content yet</button>
+  <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
+</div>
+<div class="main" id="main-layout">
+  <div class="sidebar" id="bar-list"></div>
+  <div class="detail" id="detail-panel">
+    <div class="detail-empty">← Select a bar to inspect</div>
+  </div>
+</div>
+<script>
+const APPWRITE_ENDPOINT = 'https://cloud.appwrite.io/v1';
+const APPWRITE_PROJECT  = '69c2662f00187b79232a';
+const STORAGE_BUCKET_ID = '69c2666f00006a6d2cd3';
+const EXCEL_FILE_ID     = '69c2668800312c884173';
+const API_KEY = window.MONITOR_API_KEY || '';
+
+let allBars = [], activeFilter = 'all', activeBar = null;
+
+async function appwriteGet(path) {
+  const headers = { 'X-Appwrite-Project': APPWRITE_PROJECT, 'Content-Type': 'application/json' };
+  if (API_KEY) headers['X-Appwrite-Key'] = API_KEY;
+  const res = await fetch(`${APPWRITE_ENDPOINT}${path}`, { headers });
+  if (!res.ok) throw new Error(`Appwrite ${res.status}: ${await res.text()}`);
+  return res;
+}
+
+async function downloadAndParseExcel() {
+  setLoadingMsg('Downloading Excel from Appwrite Storage...');
+  const res = await appwriteGet(`/storage/buckets/${STORAGE_BUCKET_ID}/files/${EXCEL_FILE_ID}/download`);
+  const arrayBuffer = await res.arrayBuffer();
+  setLoadingMsg('Parsing Excel...');
+  const wb = XLSX.read(arrayBuffer, { type: 'array' });
+  const ws = wb.Sheets['BarRemarks'] || wb.Sheets[wb.SheetNames[0]];
+  const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: '' });
+  if (rows.length < 3) throw new Error('Excel has no data rows');
+  const bars = [];
+  for (let i = 2; i < rows.length; i++) {
+    const r = rows[i];
+    const uuid = String(r[0]||'').trim(), nameJp = String(r[1]||'').trim();
+    const nameEn = String(r[2]||'').trim(), content = String(r[3]||'').trim();
+    const descJp = String(r[6]||'').trim(), descEn = String(r[7]||'').trim();
+    if (!uuid || uuid.startsWith('Fill')) continue;
+    if (!nameJp || ['*','?'].includes(nameJp)) continue;
+    bars.push({ uuid, nameJp, nameEn, content, descJp, descEn });
+  }
+  return bars;
+}
+
+function formatContent(content) {
+  if (!content) return '<em>No content accumulated yet</em>';
+  return content.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\[(\d{4}-\d{2}-\d{2})\]/g, '<span class="date-tag">[$1]</span>');
+}
+
+function countEntries(content) {
+  return (content.match(/\[\d{4}-\d{2}-\d{2}\]/g)||[]).length;
+}
+
+function renderBadges(bar) {
+  const parts = [];
+  if (bar.content) {
+    const n = countEntries(bar.content);
+    parts.push(`<span class="badge badge-content">${n>0?n+' entries':'content'}</span>`);
+  } else parts.push('<span class="badge badge-empty">empty</span>');
+  if (bar.descJp || bar.descEn) parts.push('<span class="badge badge-desc">described</span>');
+  return parts.join('');
+}
+
+function getFilteredBars() {
+  const q = document.getElementById('search').value.toLowerCase();
+  return allBars.filter(b => {
+    const ms = !q || b.nameJp.toLowerCase().includes(q) || b.nameEn.toLowerCase().includes(q);
+    const mf = activeFilter==='all'?true:activeFilter==='has-desc'?(b.descJp||b.descEn):activeFilter==='no-desc'?!(b.descJp||b.descEn)&&b.content:!b.content;
+    return ms && mf;
+  });
+}
+
+function renderList() {
+  const list = document.getElementById('bar-list');
+  list.innerHTML = getFilteredBars().map(bar => `
+    <div class="bar-item${activeBar===bar.uuid?' active':''}" data-uuid="${bar.uuid}" onclick="selectBar('${bar.uuid}')">
+      <div class="bar-name-jp">${bar.nameJp}</div>
+      ${bar.nameEn?`<div class="bar-name-en">${bar.nameEn}</div>`:''}
+      <div class="bar-badges">${renderBadges(bar)}</div>
+    </div>`).join('');
+}
+
+function selectBar(uuid) {
+  activeBar = uuid;
+  const bar = allBars.find(b => b.uuid === uuid);
+  if (!bar) return;
+  const entries = countEntries(bar.content);
+  document.getElementById('detail-panel').innerHTML = `
+    <div class="detail-header">
+      <div class="detail-name-jp">${bar.nameJp}</div>
+      ${bar.nameEn?`<div class="detail-name-en">${bar.nameEn}</div>`:''}
+      <div class="detail-uuid">${bar.uuid}</div>
+    </div>
+    <div class="section">
+      <div class="section-label">Accumulated Content — ${entries} entries / ${bar.content.length} chars</div>
+      <div class="content-block${bar.content?'':' empty'}">${formatContent(bar.content)}</div>
+    </div>
+    <div class="section">
+      <div class="section-label">Japanese Description ${bar.descJp?`<button class="copy-btn" onclick="copyText(this,'${encodeURIComponent(bar.descJp)}')">copy</button>`:''}</div>
+      <div class="content-block desc-jp${bar.descJp?'':' empty'}">${bar.descJp||'<em>Not yet generated</em>'}</div>
+      ${bar.descJp?`<div class="char-count">${bar.descJp.length} chars</div>`:''}
+    </div>
+    <div class="section">
+      <div class="section-label">English Description ${bar.descEn?`<button class="copy-btn" onclick="copyText(this,'${encodeURIComponent(bar.descEn)}')">copy</button>`:''}</div>
+      <div class="content-block desc-en${bar.descEn?'':' empty'}">${bar.descEn||'<em>Not yet generated</em>'}</div>
+      ${bar.descEn?`<div class="char-count">${bar.descEn.length} chars</div>`:''}
+    </div>`;
+  document.querySelectorAll('.bar-item').forEach(el => el.classList.toggle('active', el.dataset.uuid===uuid));
+}
+
+function copyText(btn, encoded) {
+  navigator.clipboard.writeText(decodeURIComponent(encoded)).then(() => {
+    btn.textContent = '✓ copied';
+    setTimeout(() => btn.textContent = 'copy', 1500);
+  });
+}
+
+function updateStats() {
+  const total = allBars.length;
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-content').textContent = allBars.filter(b=>b.content).length+' / '+total;
+  document.getElementById('stat-desc').textContent = allBars.filter(b=>b.descJp||b.descEn).length+' / '+total;
+  document.getElementById('stat-time').textContent = new Date().toLocaleTimeString();
+}
+
+function setLoadingMsg(msg) { document.getElementById('loading-msg').textContent = msg; }
+
+async function loadData() {
+  document.getElementById('loading').style.display = 'flex';
+  document.getElementById('refresh-btn').disabled = true;
+  try {
+    allBars = await downloadAndParseExcel();
+    updateStats(); renderList();
+    if (activeBar) selectBar(activeBar);
+    document.getElementById('loading').style.display = 'none';
+  } catch (e) {
+    document.getElementById('loading').innerHTML = `<div class="error-banner"><strong>Failed to load</strong><br>${e.message}<br><br>Make sure MONITOR_API_KEY has storage.read scope.</div>`;
+  }
+  document.getElementById('refresh-btn').disabled = false;
+}
+
+document.getElementById('search').addEventListener('input', renderList);
+document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active'); activeFilter = btn.dataset.filter; renderList();
+}));
+document.getElementById('refresh-btn').addEventListener('click', loadData);
+
+const s = document.createElement('script');
+s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
+s.onload = loadData;
+document.head.appendChild(s);
+</script>
+</body>
+</html>
