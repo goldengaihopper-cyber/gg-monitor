@@ -19,16 +19,24 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: \${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
       - name: Inject API key
-        env:
-          MONITOR_API_KEY: \${{ secrets.MONITOR_API_KEY }}
         run: |
-          sed -i "s|const API_KEY = window.MONITOR_API_KEY || '';|const API_KEY = '\${MONITOR_API_KEY}';|g" docs/index.html
+          python3 -c "
+          import re, os
+          key = os.environ['MONITOR_API_KEY']
+          path = 'docs/index.html'
+          content = open(path).read()
+          content = content.replace(\"const API_KEY = window.MONITOR_API_KEY || '';\", f\"const API_KEY = '{key}';\")
+          open(path, 'w').write(content)
+          print('Key injected.')
+          "
+        env:
+          MONITOR_API_KEY: ${{ secrets.MONITOR_API_KEY }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
