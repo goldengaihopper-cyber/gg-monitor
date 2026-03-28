@@ -88,6 +88,8 @@ header{border-bottom:1px solid var(--border);padding:18px 24px;display:flex;alig
   <button class="filter-btn" data-filter="no-desc">Needs description</button>
   <button class="filter-btn" data-filter="no-content">No content yet</button>
   <button class="refresh-btn" id="refresh-btn">↻ Refresh</button>
+  <button class="refresh-btn" id="push-all-btn" style="background:var(--accent2);margin-left:4px">↑ Push All to Appwrite</button>
+  <span id="push-all-status" style="font-size:11px;color:var(--muted);margin-left:8px"></span>
 </div>
 <div class="main" id="main-layout">
   <div class="sidebar" id="bar-list"></div>
@@ -129,7 +131,7 @@ async function downloadAndParseExcel() {
     const descJp = String(r[6]||'').trim(), descEn = String(r[7]||'').trim();
     if (!uuid || uuid.startsWith('Fill')) continue;
     if (!nameJp || ['*','?'].includes(nameJp)) continue;
-    bars.push({ uuid, nameJp, nameEn, content, descJp, descEn });
+    bars.push({ uuid, nameJp, nameEn, content, descJp, descEn, pushed: false });
   }
   return bars;
 }
@@ -169,7 +171,7 @@ function renderList() {
     <div class="bar-item${activeBar===bar.uuid?' active':''}" data-uuid="${bar.uuid}" onclick="selectBar('${bar.uuid}')">
       <div class="bar-name-jp">${bar.nameJp}</div>
       ${bar.nameEn?`<div class="bar-name-en">${bar.nameEn}</div>`:''}
-      <div class="bar-badges">${renderBadges(bar)}</div>
+      <div class="bar-badges">${renderBadges(bar)}${bar.pushed ? '<span class="badge" style="background:rgba(74,232,176,.2);color:var(--accent2)">✓ pushed</span>' : ''}</div>
       <div style="font-size:9px;color:var(--muted);margin-top:2px;display:flex;gap:8px">
         ${bar.content ? `<span title="content">📄 ${bar.content.length}c</span>` : ''}
         ${bar.descJp ? `<span title="JP desc">🇯🇵 ${bar.descJp.length}c</span>` : ''}
@@ -291,6 +293,8 @@ async function pushToAppwrite(uuid, encodedJp, encodedEn, btn) {
       btn.textContent = '✓ Pushed!';
       statusEl.textContent = 'Updated in bar-info ✅';
       statusEl.style.color = 'var(--accent2)';
+      const bar = allBars.find(b => b.uuid === uuid);
+      if (bar) { bar.pushed = true; renderList(); }
     } else {
       const err = await res.json();
       btn.textContent = '↑ Push to Appwrite';
@@ -304,6 +308,67 @@ async function pushToAppwrite(uuid, encodedJp, encodedEn, btn) {
   }
   btn.disabled = false;
 }
+
+
+async function pushAll() {
+  const btn = document.getElementById('push-all-btn');
+  const status = document.getElementById('push-all-status');
+  const bars = allBars.filter(b => b.descJp || b.descEn);
+
+  if (bars.length === 0) {
+    status.textContent = 'No bars with descriptions found.';
+    return;
+  }
+
+  btn.disabled = true;
+  document.getElementById('refresh-btn').disabled = true;
+  let pushed = 0, failed = 0;
+
+  for (const bar of bars) {
+    status.textContent = `Pushing ${pushed + failed + 1} / ${bars.length} — ${bar.nameJp}...`;
+
+    const ENDPOINT  = 'https://cloud.appwrite.io/v1';
+    const PROJECT_1 = '68e8f76d0022613d8690';
+    const DB_ID     = '68e8f7bd0013995c9560';
+    const COL_ID    = 'bar-info';
+    const API_KEY_1 = window.MAIN_API_KEY || '';
+
+    try {
+      const res = await fetch(`${ENDPOINT}/databases/${DB_ID}/collections/${COL_ID}/documents/${bar.uuid}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Appwrite-Project': PROJECT_1,
+          'X-Appwrite-Key': API_KEY_1,
+        },
+        body: JSON.stringify({
+          data: {
+            description_jp: bar.descJp,
+            description_en: bar.descEn,
+          }
+        })
+      });
+      if (res.ok) { pushed++; bar.pushed = true; renderList(); }
+      else { failed++; console.error('Failed:', bar.nameJp, await res.text()); }
+    } catch (e) {
+      failed++;
+      console.error('Error:', bar.nameJp, e.message);
+    }
+
+    await new Promise(r => setTimeout(r, 200));
+  }
+
+  status.textContent = `✅ Done! Pushed: ${pushed} | Failed: ${failed}`;
+  status.style.color = failed > 0 ? '#e8c14a' : 'var(--accent2)';
+  btn.disabled = false;
+  document.getElementById('refresh-btn').disabled = false;
+}
+
+document.getElementById('push-all-btn').addEventListener('click', () => {
+  if (confirm(`Push descriptions for ALL ${allBars.filter(b => b.descJp || b.descEn).length} bars to Appwrite Account 1?`)) {
+    pushAll();
+  }
+});
 
 const s = document.createElement('script');
 s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
