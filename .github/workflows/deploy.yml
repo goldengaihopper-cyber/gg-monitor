@@ -24,19 +24,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Inject API key
+      - name: Inject API keys
         run: |
           python3 -c "
-          import re, os
-          key = os.environ['MONITOR_API_KEY']
+          import os
+          monitor_key = os.environ['MONITOR_API_KEY']
+          main_key = os.environ['MAIN_API_KEY']
           path = 'docs/index.html'
           content = open(path).read()
-          content = content.replace(\"const API_KEY = window.MONITOR_API_KEY || '';\", f\"const API_KEY = '{key}';\")
+          content = content.replace(\"const API_KEY = window.MONITOR_API_KEY || '';\", f\"const API_KEY = '{monitor_key}';\")
+          content = content.replace(\"const API_KEY_1  = window.MAIN_API_KEY || '';\", f\"const API_KEY_1  = '{main_key}';\")
           open(path, 'w').write(content)
-          print('Key injected.')
+          print('Keys injected.')
           "
         env:
           MONITOR_API_KEY: ${{ secrets.MONITOR_API_KEY }}
+          MAIN_API_KEY: ${{ secrets.MAIN_API_KEY }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

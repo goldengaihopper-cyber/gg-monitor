@@ -170,6 +170,11 @@ function renderList() {
       <div class="bar-name-jp">${bar.nameJp}</div>
       ${bar.nameEn?`<div class="bar-name-en">${bar.nameEn}</div>`:''}
       <div class="bar-badges">${renderBadges(bar)}</div>
+      <div style="font-size:9px;color:var(--muted);margin-top:2px;display:flex;gap:8px">
+        ${bar.content ? `<span title="content">📄 ${bar.content.length}c</span>` : ''}
+        ${bar.descJp ? `<span title="JP desc">🇯🇵 ${bar.descJp.length}c</span>` : ''}
+        ${bar.descEn ? `<span title="EN desc">🇬🇧 ${bar.descEn.length}c</span>` : ''}
+      </div>
     </div>`).join('');
 }
 
@@ -183,6 +188,10 @@ function selectBar(uuid) {
       <div class="detail-name-jp">${bar.nameJp}</div>
       ${bar.nameEn?`<div class="detail-name-en">${bar.nameEn}</div>`:''}
       <div class="detail-uuid">${bar.uuid}</div>
+      <div style="margin-top:12px;display:flex;gap:8px;align-items:center">
+        <button class="refresh-btn" style="margin-left:0" onclick="pushToAppwrite('${bar.uuid}', '${encodeURIComponent(bar.descJp)}', '${encodeURIComponent(bar.descEn)}', this)">↑ Push to Appwrite</button>
+        <span id="push-status-${bar.uuid}" style="font-size:11px;color:var(--muted)"></span>
+      </div>
     </div>
     <div class="section">
       <div class="section-label">Accumulated Content — ${entries} entries / ${bar.content.length} chars</div>
@@ -238,6 +247,63 @@ document.querySelectorAll('.filter-btn').forEach(btn => btn.addEventListener('cl
   btn.classList.add('active'); activeFilter = btn.dataset.filter; renderList();
 }));
 document.getElementById('refresh-btn').addEventListener('click', loadData);
+
+
+async function pushToAppwrite(uuid, encodedJp, encodedEn, btn) {
+  const descJp = decodeURIComponent(encodedJp);
+  const descEn = decodeURIComponent(encodedEn);
+  const statusEl = document.getElementById('push-status-' + uuid);
+
+  if (!descJp && !descEn) {
+    statusEl.textContent = '⚠️ No descriptions to push';
+    statusEl.style.color = '#e8c14a';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Pushing...';
+  statusEl.textContent = '';
+
+  // Appwrite Account 1 details
+  const ENDPOINT   = 'https://cloud.appwrite.io/v1';
+  const PROJECT_1  = '68e8f76d0022613d8690';
+  const DB_ID      = '68e8f7bd0013995c9560';
+  const COL_ID     = 'bar-info';
+  const API_KEY_1  = window.MAIN_API_KEY || '';
+
+  try {
+    const res = await fetch(`${ENDPOINT}/databases/${DB_ID}/collections/${COL_ID}/documents/${uuid}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Appwrite-Project': PROJECT_1,
+        'X-Appwrite-Key': API_KEY_1,
+      },
+      body: JSON.stringify({
+        data: {
+          description_jp: descJp,
+          description_en: descEn,
+        }
+      })
+    });
+
+    if (res.ok) {
+      btn.textContent = '✓ Pushed!';
+      statusEl.textContent = 'Updated in bar-info ✅';
+      statusEl.style.color = 'var(--accent2)';
+    } else {
+      const err = await res.json();
+      btn.textContent = '↑ Push to Appwrite';
+      statusEl.textContent = '❌ ' + (err.message || res.status);
+      statusEl.style.color = '#e88';
+    }
+  } catch (e) {
+    btn.textContent = '↑ Push to Appwrite';
+    statusEl.textContent = '❌ ' + e.message;
+    statusEl.style.color = '#e88';
+  }
+  btn.disabled = false;
+}
 
 const s = document.createElement('script');
 s.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';
